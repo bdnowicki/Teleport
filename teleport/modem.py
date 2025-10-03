@@ -78,7 +78,8 @@ class MFSKModulator:
             window[:taper_len] = 0.5 * (1 - np.cos(taper))
             window[-taper_len:] = 0.5 * (1 - np.cos(taper[::-1]))
         
-        return tone * window
+        # Ensure float32 dtype
+        return (tone * window).astype(np.float32)
 
 
 class MFSKDemodulator:
@@ -280,8 +281,9 @@ class MFSKModem:
         # Modulate data symbols
         data_audio = self.modulator.modulate_symbols(symbols)
         
-        # Combine all parts
-        return np.concatenate([preamble, sync_word, data_audio])
+        # Combine all parts and ensure float32 dtype
+        combined = np.concatenate([preamble, sync_word, data_audio])
+        return combined.astype(np.float32)
     
     def decode_audio(self, audio: np.ndarray) -> Optional[bytes]:
         """Decode audio signal back to data."""

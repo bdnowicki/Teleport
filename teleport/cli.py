@@ -14,7 +14,7 @@ import numpy as np
 
 from .audio_io import AudioTransmitter, AudioReceiver, list_audio_devices, find_loopback_device
 from .modem import MFSKModem
-from .framing import FrameAssembler, FrameTransmitter, FrameReceiver, FileChunker, FileHeader
+from .framing import FrameAssembler, FrameTransmitter, FrameReceiver, FileChunker, FileHeader, Chunk
 from .fec import FECEncoder, FECDecoder
 from .utils import Config, normalize_audio
 

@@ -100,7 +100,8 @@ class AudioTransmitter:
             return
         
         try:
-            # Ensure audio is in correct format
+            # Ensure audio is in correct format and dtype
+            audio = audio.astype(np.float32)
             if audio.ndim == 1:
                 audio = audio.reshape(-1, 1)
             

@@ -68,8 +68,8 @@ def normalize_audio(audio: np.ndarray, target_level: float = 0.8) -> np.ndarray:
     max_val = np.max(np.abs(audio))
     if max_val > 0:
         scale = target_level / max_val
-        return audio * scale
-    return audio
+        return (audio * scale).astype(np.float32)
+    return audio.astype(np.float32)
 
 
 def apply_raised_cosine_window(signal: np.ndarray, alpha: float = 0.35) -> np.ndarray:
@@ -85,7 +85,7 @@ def apply_raised_cosine_window(signal: np.ndarray, alpha: float = 0.35) -> np.nd
         window[:taper_len] *= taper
         window[-taper_len:] *= taper[::-1]
     
-    return signal * window
+    return (signal * window).astype(np.float32)
 
 
 class Config:
