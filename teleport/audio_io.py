@@ -68,6 +68,32 @@ def find_loopback_device() -> Optional[AudioDevice]:
     return None
 
 
+def test_device_capabilities(device_index: int) -> bool:
+    """Test if a device can be used for audio reception."""
+    try:
+        device_info = sd.query_devices(device_index)
+        print(f"Testing device {device_index}: {device_info['name']}")
+        print(f"  Max input channels: {device_info['max_input_channels']}")
+        print(f"  Max output channels: {device_info['max_output_channels']}")
+        
+        # Try to create a test stream
+        test_stream = sd.InputStream(
+            samplerate=48000,
+            channels=1,
+            dtype=np.float32,
+            device=device_index,
+            extra_settings=sd.WasapiSettings(loopback=True),
+            blocksize=1024
+        )
+        test_stream.close()
+        print(f"  ✓ Device {device_index} supports WASAPI loopback")
+        return True
+        
+    except Exception as e:
+        print(f"  ✗ Device {device_index} failed: {e}")
+        return False
+
+
 class AudioTransmitter:
     """Handles audio transmission (playback)."""
     
@@ -149,29 +175,64 @@ class AudioReceiver:
         if self.is_recording:
             return
         
-        try:
-            # Use WASAPI loopback if available
-            extra_settings = None
-            if device is not None:
-                # Try to use WASAPI loopback for the specified device
-                try:
-                    extra_settings = sd.WasapiSettings(loopback=True)
-                except:
-                    pass  # Fall back to regular input
-            
-            self.stream = sd.InputStream(
-                samplerate=self.sample_rate,
-                channels=self.channels,
-                dtype=np.float32,
-                device=device,
-                extra_settings=extra_settings,
-                callback=self._audio_callback,
-                blocksize=self.buffer_size
-            )
-            self.stream.start()
-            self.is_recording = True
-        except Exception as e:
-            raise RuntimeError(f"Failed to start audio reception: {e}")
+        # Try different configurations
+        configs = [
+            # Try with WASAPI loopback first
+            {'extra_settings': sd.WasapiSettings(loopback=True), 'channels': 1},
+            {'extra_settings': sd.WasapiSettings(loopback=True), 'channels': 2},
+            # Fall back to regular input
+            {'extra_settings': None, 'channels': 1},
+            {'extra_settings': None, 'channels': 2},
+        ]
+        
+        last_error = None
+        
+        for i, config in enumerate(configs):
+            try:
+                # Query device capabilities first
+                if device is not None:
+                    device_info = sd.query_devices(device)
+                    print(f"Using device: {device_info['name']}")
+                    print(f"Max input channels: {device_info['max_input_channels']}")
+                    
+                    # Adjust channels based on device capabilities
+                    if device_info['max_input_channels'] < config['channels']:
+                        print(f"Warning: Device only supports {device_info['max_input_channels']} channels, using mono")
+                        channels = 1
+                    else:
+                        channels = config['channels']
+                else:
+                    channels = config['channels']
+                
+                print(f"Trying configuration {i+1}: {channels} channels, WASAPI loopback: {config['extra_settings'] is not None}")
+                
+                self.stream = sd.InputStream(
+                    samplerate=self.sample_rate,
+                    channels=channels,
+                    dtype=np.float32,
+                    device=device,
+                    extra_settings=config['extra_settings'],
+                    callback=self._audio_callback,
+                    blocksize=self.buffer_size
+                )
+                self.stream.start()
+                self.is_recording = True
+                print(f"Audio reception started successfully with {channels} channels")
+                return
+                
+            except Exception as e:
+                last_error = e
+                print(f"Configuration {i+1} failed: {e}")
+                if self.stream is not None:
+                    try:
+                        self.stream.close()
+                    except:
+                        pass
+                    self.stream = None
+                continue
+        
+        # If all configurations failed
+        raise RuntimeError(f"Failed to start audio reception with any configuration. Last error: {last_error}")
     
     def read(self, timeout: float = 1.0) -> Optional[np.ndarray]:
         """Read audio data from the queue."""

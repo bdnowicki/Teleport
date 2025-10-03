@@ -12,7 +12,7 @@ from typing import Optional
 
 import numpy as np
 
-from .audio_io import AudioTransmitter, AudioReceiver, list_audio_devices, find_loopback_device
+from .audio_io import AudioTransmitter, AudioReceiver, list_audio_devices, find_loopback_device, test_device_capabilities
 from .modem import MFSKModem
 from .framing import FrameAssembler, FrameTransmitter, FrameReceiver, FileChunker, FileHeader, Chunk
 from .fec import FECEncoder, FECDecoder
@@ -28,6 +28,20 @@ def list_devices():
         print(f"{i}: {device}")
     
     print(f"\nRecommended loopback device: {find_loopback_device()}")
+    
+    # Test devices for loopback capability
+    print("\nTesting devices for loopback capability:")
+    working_devices = []
+    for i, device in enumerate(devices):
+        if device.is_output:  # Only test output devices for loopback
+            if test_device_capabilities(i):
+                working_devices.append(i)
+    
+    if working_devices:
+        print(f"\nWorking loopback devices: {working_devices}")
+    else:
+        print("\nNo devices found that support WASAPI loopback")
+        print("Try using a different device or check your audio drivers")
 
 
 def transmit_file(filepath: str, rate: str = 'default', repeat: int = 1, 
